@@ -1,0 +1,56 @@
+name: Unzip Midia Hub ZIP
+
+on:
+  workflow_dispatch: {}    # ম্যানুয়ালি চালাতে পারবেন
+  push:
+    paths:
+      - '**/*.zip'        # zip ফাইল পুশ হলে অটোমেটিক ট্রিগার হবে
+
+jobs:
+  unzip:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Find Midia Hub zip file
+        id: findzip
+        run: |
+          # অনুসন্ধান: নামের মধ্যে 'midia'/'midia hub' থাকা zip ফাইল খোঁজ
+          ZIP=$(find . -type f -iname "midia*.zip" -print -quit)
+          if [ -z "$ZIP" ]; then
+            echo "zip_not_found=true" >> $GITHUB_OUTPUT
+            echo "No midia zip file found."
+            exit 1
+          fi
+          echo "zip_not_found=false" >> $GITHUB_OUTPUT
+          echo "zip_path=$ZIP" >> $GITHUB_OUTPUT
+          echo "Found zip: $ZIP"
+
+      - name: Create output dir and unzip
+        if: steps.findzip.outputs.zip_not_found == 'false'
+        run: |
+          ZIP="${{ steps.findzip.outputs.zip_path }}"
+          OUTDIR="unzipped-midia"
+          mkdir -p "$OUTDIR"
+          unzip -q "$ZIP" -d "$OUTDIR"
+          echo "Unzipped to $OUTDIR"
+          ls -la "$OUTDIR" || true
+
+      - name: Upload unzipped files as artifact
+        if: steps.findzip.outputs.zip_not_found == 'false'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unzipped-midia
+          path: unzipped-midia
+
+      # যদি চান আউটপুট রিপোতে commit করে রাখতে (ইচ্ছানুযায়ী সক্রিয় করুন)
+      # - name: Commit and push unzipped files back to repo
+      #   if: steps.findzip.outputs.zip_not_found == 'false'
+      #   uses: EndBug/add-and-commit@v9
+      #   with:
+      #     author_name: github-actions
+      #     author_email: 41898282+github-actions[bot]@users.noreply.github.com
+      #     message: "Add unzipped midia hub files"
+      #     add: "unzipped-midia/**"
+      #     push: true
